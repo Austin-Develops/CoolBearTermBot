@@ -1,0 +1,5 @@
+*
+!.gitignore
+!requirements.txt
+!bot.py
+!assets

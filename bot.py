@@ -9,13 +9,17 @@ import subprocess
 import sys
 from pathlib import Path
 from Levenshtein import distance
+import datetime
+
+def dprint(*args, **kwargs):
+    print(f'[Cool Bear] {str(datetime.datetime.now())}:', *args, **kwargs)
 
 intents = discord.Intents.default()
 intents.message_content = True
 
 myBot = Bot('!', intents=intents)
 
-print(sys.argv)
+dprint(sys.argv)
 online_message_channel = None if len(sys.argv) <= 1 else int(sys.argv[1])
 
 '''
@@ -138,7 +142,7 @@ async def on_message(message: discord.Message):
         return
     
     if message.content == '!sync' and message.author.id == config.BOT_DEV_ID:
-        print(myBot.guilds)
+        dprint(myBot.guilds)
         # myBot.tree.add_command(set_primary_server, guild=myBot.guilds[0])
         await myBot.tree.sync()
         await message.channel.send('Synced!')
@@ -146,11 +150,11 @@ async def on_message(message: discord.Message):
 
 @myBot.event
 async def on_ready():
-    print(online_message_channel, config.initially_spoken)
+    dprint(online_message_channel, config.initially_spoken)
     if online_message_channel is not None and not config.initially_spoken:
         config.initially_spoken = True
         target_channel = myBot.get_channel(online_message_channel)
-        print(target_channel, ':)')
+        dprint(target_channel, ':)')
         if target_channel is not None:
             await target_channel.send('Restarted (Dev Branch)!')
             await myBot.tree.sync()
@@ -425,7 +429,7 @@ async def get_term_list(ctx: discord.Interaction):
 #     terms = set()
 #     async for message in bot_channel.history(limit=5000):
 #         if message.author.id == isabot_id:
-#             print(message.interaction_metadata)
+#             dprint(message.interaction_metadata)
     
 #     await ctx.followup.send('Done')
 
@@ -439,7 +443,7 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
     await ctx.response.defer(thinking=True)
     if branch is None:
         branch = subprocess.run(['git', 'branch', '--show-current'], capture_output=True, text=True).stdout.strip()
-        print(branch)
+        dprint(branch)
     
     # Define paths
     venv_win = Path(".venv/Scripts/python.exe")

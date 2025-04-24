@@ -460,8 +460,9 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
         subprocess.run(['git', 'pull', 'origin', branch], check=True)
         await ctx.followup.send('Restarting o7')
         subprocess.Popen([venv_python, 'bot.py', str(ctx.channel_id)])
-    except:
-        await ctx.followup.send(f'Branch `{branch}` does not exist')
+    except Exception as e:
+        await ctx.followup.send(traceback.format_exc(), ephemeral=True)
+        await ctx.followup.send(f'Branch `{branch}` does not exist', ephemeral=True)
         return
     sys.exit(0)
 

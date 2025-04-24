@@ -156,7 +156,7 @@ async def on_ready():
         target_channel = myBot.get_channel(online_message_channel)
         dprint(target_channel, ':)')
         if target_channel is not None:
-            await target_channel.send('Restarted (Dev Branch)!')
+            await target_channel.send('Restarted!')
             await myBot.tree.sync()
 
 @myBot.tree.command(name='set_config_file', description='Sets data file')

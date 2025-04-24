@@ -468,7 +468,7 @@ async def define(ctx: discord.Interaction, term: str):
         files = [discord.File(os.path.join('assets', filepath)) for filepath in config.data[term]['Files']]
         await ctx.followup.send(embed=embed)
         if files:
-            new_msg = await ctx.channel.send('Uploading video...')
+            new_msg = await ctx.channel.send('Uploading file(s)...')
             await new_msg.edit(content=None, attachments=files)
 
 
@@ -499,7 +499,7 @@ async def howto(ctx: discord.Interaction, term: str):
         files = [discord.File(os.path.join('assets', filepath)) for filepath in config.data[term]['ExplainFiles']]
         await ctx.followup.send(embed=embed)
         if files:
-            new_msg = await ctx.channel.send('Uploading video...')
+            new_msg = await ctx.channel.send('Uploading file(s)...')
             await new_msg.edit(content=None, attachments=files)
 
 

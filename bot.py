@@ -358,7 +358,7 @@ async def amend_term(ctx: discord.Interaction, term: str, definition: str | None
 @myBot.tree.command(name='explain_term', description='Updates a term explanation')
 @check(guild_only)
 @check(is_termer)
-async def amend_term(ctx: discord.Interaction, term: str, instructions: str | None = None,
+async def explain_term(ctx: discord.Interaction, term: str, instructions: str | None = None,
                      file1: discord.Attachment | None = None, file2: discord.Attachment | None = None,
                      file3: discord.Attachment | None = None, file4: discord.Attachment | None = None):
     # TODO
@@ -397,11 +397,11 @@ async def amend_term(ctx: discord.Interaction, term: str, instructions: str | No
             true_files.append(file.filename)
             
         except discord.Forbidden:
-            text += f'Failed to download `{file.filename}`. I do not have permissions to. Give me permissions and use /amend_term to add this file.\n'
+            text += f'Failed to download `{file.filename}`. I do not have permissions to. Give me permissions and use /explain_term to add this file.\n'
         except discord.NotFound:
-            text += f'Failed to download `{file.filename}`. This attachment was deleted. Use /amend_term to include this file.\n'
+            text += f'Failed to download `{file.filename}`. This attachment was deleted. Use /explain_term to include this file.\n'
         except discord.HTTPException:
-            text += f'Failed to download `{file.filename}`. Use /amend_term to try again.\n'
+            text += f'Failed to download `{file.filename}`. Use /explain_term to try again.\n'
 
     if text:
         await ctx.followup.send(text)
@@ -409,7 +409,7 @@ async def amend_term(ctx: discord.Interaction, term: str, instructions: str | No
     new_item = {
         'Aliases': [],
         'Message': config.data[term]['Message'],
-        'Files': config.data[term]['Method'],
+        'Files': config.data[term]['Files'],
         'Method': '' if instructions is None else instructions,
         'ExplainFiles': true_files
     }

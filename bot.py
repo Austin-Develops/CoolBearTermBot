@@ -542,6 +542,10 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
         branch = subprocess.run(['git', 'branch', '--show-current'], capture_output=True, text=True).stdout.strip()
         print(branch)
     
+    def branch_exists(branch):
+        result = subprocess.run(['git', 'branch', '--list', branch], capture_output=True, text=True)
+        return branch in result.stdout
+    
     # Define paths
     venv_win = Path(".venv/Scripts/python.exe")
     venv_unix = Path(".venv/bin/python")
@@ -556,13 +560,18 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
         return
     
     try:
-        subprocess.run(['git', 'fetch', '--all'], check=True)
-        subprocess.run(['git', 'switch', branch], check=True)
+        subprocess.run(['git', 'fetch', 'origin'], check=True)
+        if not branch_exists(branch):
+            subprocess.run(['git', 'switch', '-c', branch, f'origin/{branch}'], check=True)
+        else:
+            subprocess.run(['git', 'switch', branch], check=True)
         subprocess.run(['git', 'pull', 'origin', branch], check=True)
         await ctx.followup.send('Restarting o7')
         subprocess.Popen([venv_python, 'bot.py', str(ctx.channel_id)])
-    except:
-        await ctx.followup.send(f'Branch `{branch}` does not exist')
+    except subprocess.CalledProcessError as e:
+        dprint(traceback.format_exc())
+        await ctx.followup.send(traceback.format_exc(), ephemeral=True)
+        await ctx.followup.send(f'Branch `{branch}` does not exist', ephemeral=True)
         return
     sys.exit(0)
 

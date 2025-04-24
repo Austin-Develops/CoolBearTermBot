@@ -245,7 +245,9 @@ async def add_term(ctx: discord.Interaction, term: str, definition: str | None =
     new_item = {
         'Aliases': [],
         'Message': '' if definition is None else definition,
-        'Files': true_files
+        'Files': true_files,
+        'Method': '',
+        'ExplainFiles': []
     }
 
     config.data[term] = new_item
@@ -314,18 +316,21 @@ async def amend_term(ctx: discord.Interaction, term: str, definition: str | None
     for file in files:
         try:
             existing_assets = os.listdir('assets')
-            base, ext = os.path.splitext(file.filename)
-            name = file.filename
-            number = 0
-            while name in existing_assets:
-                number += 1
-                name = f'{base} ({number}){ext}'
+            # base, ext = os.path.splitext(file.filename)
+            # name = file.filename
+            # number = 0
+            # while name in existing_assets:
+            #     number += 1
+            #     name = f'{base} ({number}){ext}'
 
-            bytes = await file.read()
-            with open(os.path.join('assets', name), 'wb') as new_file:
-                new_file.write(bytes)
+            if file.filename not in existing_assets:
+                bytes = await file.read()
+                with open(os.path.join('assets', file.filename), 'wb') as new_file:
+                    new_file.write(bytes)
+            else:
+                text += f'{file.filename} exists in asset storage. Using stored file.\n'
             
-            true_files.append(name)
+            true_files.append(file.filename)
             
         except discord.Forbidden:
             text += f'Failed to download `{file.filename}`. I do not have permissions to. Give me permissions and use /amend_term to add this file.\n'
@@ -340,12 +345,78 @@ async def amend_term(ctx: discord.Interaction, term: str, definition: str | None
     new_item = {
         'Aliases': [],
         'Message': '' if definition is None else definition,
-        'Files': true_files
+        'Files': true_files,
+        'Method': config.data[term]['Method'],
+        'ExplainFiles': config.data[term]['ExplainFiles']
     }
 
     config.data[term] = new_item
     config.save_data()
     await ctx.followup.send(f'`{term}` has been updated!')
+
+
+@myBot.tree.command(name='explain_term', description='Updates a term explanation')
+@check(guild_only)
+@check(is_termer)
+async def amend_term(ctx: discord.Interaction, term: str, instructions: str | None = None,
+                     file1: discord.Attachment | None = None, file2: discord.Attachment | None = None,
+                     file3: discord.Attachment | None = None, file4: discord.Attachment | None = None):
+    # TODO
+    term = term.casefold()
+    diff_level, closest_words = spellcheck(term)
+
+    if diff_level != 0:
+        if not closest_words:
+            await ctx.response.send_message(f'`{term}` could not be found as a term.')
+        else:
+            await ctx.response.send_message(f'`{term}` could not be found as a term. Did you mean ' + join_list(closest_words) + '?')
+        return
+    
+    await ctx.response.defer()
+
+    files = [file for file in (file1, file2, file3, file4) if file is not None]
+    true_files = []
+    text = ''
+    for file in files:
+        try:
+            existing_assets = os.listdir('assets')
+            # base, ext = os.path.splitext(file.filename)
+            # name = file.filename
+            # number = 0
+            # while name in existing_assets:
+            #     number += 1
+            #     name = f'{base} ({number}){ext}'
+
+            if file.filename not in existing_assets:
+                bytes = await file.read()
+                with open(os.path.join('assets', file.filename), 'wb') as new_file:
+                    new_file.write(bytes)
+            else:
+                text += f'{file.filename} exists in asset storage. Using stored file.\n'
+            
+            true_files.append(file.filename)
+            
+        except discord.Forbidden:
+            text += f'Failed to download `{file.filename}`. I do not have permissions to. Give me permissions and use /amend_term to add this file.\n'
+        except discord.NotFound:
+            text += f'Failed to download `{file.filename}`. This attachment was deleted. Use /amend_term to include this file.\n'
+        except discord.HTTPException:
+            text += f'Failed to download `{file.filename}`. Use /amend_term to try again.\n'
+
+    if text:
+        await ctx.followup.send(text)
+
+    new_item = {
+        'Aliases': [],
+        'Message': config.data[term]['Message'],
+        'Files': config.data[term]['Method'],
+        'Method': '' if instructions is None else instructions,
+        'ExplainFiles': true_files
+    }
+
+    config.data[term] = new_item
+    config.save_data()
+    await ctx.followup.send(f'The `{term}` instructions have been updated!')
 
 
 @myBot.tree.command(name='delete_term', description='Removes a term')
@@ -400,6 +471,36 @@ async def define(ctx: discord.Interaction, term: str):
             new_msg = await ctx.channel.send('Uploading video...')
             await new_msg.edit(content=None, attachments=files)
 
+
+@myBot.tree.command(name='howto', description='gets instructions for how to perform a tech.')
+@check(guild_only)
+async def howto(ctx: discord.Interaction, term: str):
+    await ctx.response.defer()
+    term = term.casefold()
+    diff_level, closest_words = spellcheck(term)
+
+    if diff_level != 0:
+        if not closest_words:
+            await ctx.followup.send(f'`{term}` could not be found as a term.')
+        else:
+            await ctx.followup.send(f'`{term}` could not be found as a term. Did you mean ' + join_list(closest_words) + '?')
+        return
+    
+    else:
+        term = closest_words[0]
+        term_data = config.data[term]
+        embed = discord.Embed()
+        embed.title = f'/howto {term}'
+        embed.description = f'''Aliases: {'{None}' if not term_data['Aliases'] else ', '.join(term_data['Aliases'])}
+
+{term_data['Method']}'''
+        embed.colour = discord.Colour.teal()
+
+        files = [discord.File(os.path.join('assets', filepath)) for filepath in config.data[term]['ExplainFiles']]
+        await ctx.followup.send(embed=embed)
+        if files:
+            new_msg = await ctx.channel.send('Uploading video...')
+            await new_msg.edit(content=None, attachments=files)
 
 
 @myBot.tree.command(name='terms', description='gets the definition of a term')

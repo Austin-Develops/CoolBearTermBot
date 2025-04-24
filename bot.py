@@ -448,7 +448,7 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
     def branch_exists(branch):
         result = subprocess.run(['git', 'branch', '--list', branch], capture_output=True, text=True)
         return branch in result.stdout
-
+    
     # Define paths
     venv_win = Path(".venv/Scripts/python.exe")
     venv_unix = Path(".venv/bin/python")

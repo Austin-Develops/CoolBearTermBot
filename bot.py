@@ -12,6 +12,9 @@ from Levenshtein import distance
 from discord import ui
 from typing import Callable, Awaitable
 import datetime
+import os
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 MAX_FILE_UPLOAD = 4
 
@@ -666,7 +669,7 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
 async def get_branch(ctx: discord.Interaction):
     await ctx.response.defer(thinking=True, ephemeral=True)
     branch = subprocess.run(['git', 'branch', '--show-current'], capture_output=True, text=True).stdout.strip()
-    await ctx.followup.send(f'Branch: {branch}', ephemeral=True)
+    await ctx.followup.send(f'Branch: `{branch}`', ephemeral=True)
 
 @myBot.tree.command(name='kill', description='Turns off the bot. Kills the process')
 @check(guild_only)

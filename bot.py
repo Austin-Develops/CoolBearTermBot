@@ -648,7 +648,7 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
         return
     
     try:
-        subprocess.run(['git', 'fetch', 'origin'], check=True)
+        subprocess.run(['git', 'fetch', 'origin'], check=True, text=True)
         if not branch_exists(branch):
             subprocess.run(['git', 'switch', '-c', branch, f'origin/{branch}'], check=True)
         else:
@@ -658,6 +658,10 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
         subprocess.Popen([venv_python, 'bot.py', str(ctx.channel_id)])
     except subprocess.CalledProcessError as e:
         dprint(traceback.format_exc())
+        dprint('stdout:', e.stdout.strip())
+        dprint('stderr:', e.stderr.strip())
+        dprint('output:', e.output)
+        dprint('return code:', e.returncode)
         await ctx.followup.send(traceback.format_exc(), ephemeral=True)
         await ctx.followup.send(f'Branch `{branch}` does not exist', ephemeral=True)
         return

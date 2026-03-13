@@ -9,6 +9,10 @@ import subprocess
 import sys
 from pathlib import Path
 from Levenshtein import distance
+from discord import ui
+from typing import Callable, Awaitable
+
+MAX_FILE_UPLOAD = 4
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -94,7 +98,6 @@ async def setup_hook():
 
 
 def spellcheck(term):
-
     lowest_num = float('inf')
     lowest_terms = []
     for key, value_dict in config.data.items():
@@ -117,7 +120,7 @@ def spellcheck(term):
             elif dist == lowest_num:
                 lowest_terms.append(thing)
     
-    return lowest_num, [] if lowest_num > 3 else lowest_terms
+    return (lowest_num, [] if lowest_num > 3 else lowest_terms)
         
 
 def join_list(word_list):
@@ -198,39 +201,88 @@ async def set_termer_role(ctx: discord.Interaction, role: discord.Role):
     config.save_data()
     await ctx.response.send_message('Updated!')
 
+class TermModal(ui.Modal):
+    def __init__(self, is_new_term: bool, is_definition: bool, callback: Callable[[dict[str, str | list[discord.Attachment] | discord.Interaction]], Awaitable[None]]):
+        super().__init__(title='Term Modal')
+        
+        self.term_name = ui.Label(
+            text='Term name',
+            component=ui.TextInput(style=discord.TextStyle.short, placeholder='Term Name', required=True),
+            description='Name of a ' + ('new' if is_new_term else 'already existing') + ' term.'
+        )
+        self.definition = ui.Label(
+            text='Term Definition' if is_definition else 'Term Explanation',
+            component=ui.TextInput(style=discord.TextStyle.paragraph, placeholder='How to?', required=is_new_term and is_definition),
+            description='Mention what this tech is and what it can be used for.' if is_definition else 'Explain how to perform this tech or provide other greater explanation'
+        )
+        self.files = ui.Label(
+            text='Files',
+            component=ui.FileUpload(max_values=MAX_FILE_UPLOAD, required=False),
+            description=f'Up to {MAX_FILE_UPLOAD} files related to this tech'
+        )
+        self.add_item(self.term_name).add_item(self.definition).add_item(self.files)
+        self.callback = callback
+
+    async def on_submit(self, interaction: discord.Interaction):
+        assert isinstance(self.term_name.component, ui.TextInput)
+        assert isinstance(self.definition.component, ui.TextInput)
+        assert isinstance(self.files.component, ui.FileUpload)
+
+        result_dict = {
+            'Interaction': interaction,
+            'Term Name': self.term_name.component.value,
+            'Text': self.definition.component.value,
+            'Files': self.files.component.values
+        }
+        await self.callback(result_dict)
 
 @myBot.tree.command(name='add_term', description='Adds a term')
 @check(guild_only)
 @check(is_termer)
-async def add_term(ctx: discord.Interaction, term: str, definition: str | None = None,
-                     file1: discord.Attachment | None = None, file2: discord.Attachment | None = None,
-                     file3: discord.Attachment | None = None, file4: discord.Attachment | None = None):
+async def add_term(ctx: discord.Interaction):
+    await ctx.response.send_modal(TermModal(True, True, add_term_callback))
+
+async def add_term_callback(result_dict: dict[str, str | list[discord.Attachment] | discord.Interaction]):
+    ctx = result_dict['Interaction']
+    term = result_dict['Term Name']
+    definition = result_dict['Text']
+    files = result_dict['Files']
     
     term = term.casefold()
     if term in config.data.keys():
-        await ctx.response.send_message(f'*{term}* already exists inside of the dictionary')
+        await ctx.response.send_message(f'*{term}* already exists inside of the dictionary\n\n'
+                                        'This was your definition in case you want to amend it instead:\n'
+                                        f'```\n{definition}```')
+        return
+    if not definition:
+        await ctx.response.send_message(f'Definition is required')
         return
     
     await ctx.response.defer()
 
-    files = [file for file in (file1, file2, file3, file4) if file is not None]
+    size_limit = ctx.guild.filesize_limit
+
     true_files = []
     text = ''
     for file in files:
+        file: discord.Attachment
         try:
-            existing_assets = os.listdir('assets')
-            base, ext = os.path.splitext(file.filename)
-            name = file.filename
-            number = 0
-            while name in existing_assets:
-                number += 1
-                name = f'{base} ({number}){ext}'
+            if file.size < size_limit:
+                existing_assets = os.listdir('assets')
+                base, ext = os.path.splitext(file.filename)
+                name = file.filename
+                number = 0
+                while name in existing_assets:
+                    number += 1
+                    name = f'{base} ({number}){ext}'
 
-            bytes = await file.read()
-            with open(os.path.join('assets', name), 'wb') as new_file:
-                new_file.write(bytes)
-            
-            true_files.append(name)
+                bytes = await file.read()
+                with open(os.path.join('assets', name), 'wb') as new_file:
+                    new_file.write(bytes)
+                
+                true_files.append(name)
+            else:
+                text += f'`{file.filename}` is too large. Current max file size is {size_limit / 1024 /  1024} MB.\n'
             
         except discord.Forbidden:
             text += f'Failed to download `{file.filename}`. I do not have permissions to. Give me permissions and use /amend_term to add this file.\n'
@@ -294,26 +346,37 @@ async def alias(ctx: discord.Interaction, term: str, aliases: str | None = None)
 @myBot.tree.command(name='amend_term', description='Updates a term')
 @check(guild_only)
 @check(is_termer)
-async def amend_term(ctx: discord.Interaction, term: str, definition: str | None = None,
-                     file1: discord.Attachment | None = None, file2: discord.Attachment | None = None,
-                     file3: discord.Attachment | None = None, file4: discord.Attachment | None = None):
+async def amend_term(ctx: discord.Interaction):
+    await ctx.response.send_modal(TermModal(False, True, amend_callback))
+
+async def amend_callback(result_dict: dict[str, str | list[discord.Attachment] | discord.Interaction]):
+    ctx = result_dict['Interaction']
+    term = result_dict['Term Name']
+    definition = result_dict['Text']
+    files = result_dict['Files']
     # TODO
     term = term.casefold()
     diff_level, closest_words = spellcheck(term)
 
     if diff_level != 0:
         if not closest_words:
-            await ctx.response.send_message(f'`{term}` could not be found as a term.')
+            failure_text = f'`{term}` could not be found as a term.'
         else:
-            await ctx.response.send_message(f'`{term}` could not be found as a term. Did you mean ' + join_list(closest_words) + '?')
+            failure_text = f'`{term}` could not be found as a term. Did you mean ' + join_list(closest_words) + '?'
+        addendum = ('\n\n'
+            'This was your updated definition so you can try again:\n'
+            f'```\n{definition}```')
+        await ctx.response.send_message(f'{failure_text}{addendum if definition else ""}')
         return
     
     await ctx.response.defer()
 
-    files = [file for file in (file1, file2, file3, file4) if file is not None]
+    size_limit = ctx.guild.filesize_limit
+
     true_files = []
     text = ''
     for file in files:
+        file: discord.Attachment
         try:
             existing_assets = os.listdir('assets')
             # base, ext = os.path.splitext(file.filename)
@@ -323,14 +386,18 @@ async def amend_term(ctx: discord.Interaction, term: str, definition: str | None
             #     number += 1
             #     name = f'{base} ({number}){ext}'
 
+            
             if file.filename not in existing_assets:
-                bytes = await file.read()
-                with open(os.path.join('assets', file.filename), 'wb') as new_file:
-                    new_file.write(bytes)
+                if file.size < size_limit:
+                    bytes = await file.read()
+                    with open(os.path.join('assets', file.filename), 'wb') as new_file:
+                        new_file.write(bytes)
+                    true_files.append(file.filename)
+                else:
+                    text += f'`{file.filename}` is too large. Current max file size is {size_limit / 1024 /  1024} MB.\n'
             else:
                 text += f'{file.filename} exists in asset storage. Using stored file.\n'
-            
-            true_files.append(file.filename)
+                true_files.append(file.filename)
             
         except discord.Forbidden:
             text += f'Failed to download `{file.filename}`. I do not have permissions to. Give me permissions and use /amend_term to add this file.\n'
@@ -343,9 +410,9 @@ async def amend_term(ctx: discord.Interaction, term: str, definition: str | None
         await ctx.followup.send(text)
 
     new_item = {
-        'Aliases': [],
-        'Message': '' if definition is None else definition,
-        'Files': true_files,
+        'Aliases': config.data[term]['Aliases'],
+        'Message': '' if not definition else definition,
+        'Files': true_files if files else config.data[term]['Files'],
         'Method': config.data[term]['Method'],
         'ExplainFiles': config.data[term]['ExplainFiles']
     }
@@ -358,26 +425,37 @@ async def amend_term(ctx: discord.Interaction, term: str, definition: str | None
 @myBot.tree.command(name='explain_term', description='Updates a term explanation')
 @check(guild_only)
 @check(is_termer)
-async def explain_term(ctx: discord.Interaction, term: str, instructions: str | None = None,
-                     file1: discord.Attachment | None = None, file2: discord.Attachment | None = None,
-                     file3: discord.Attachment | None = None, file4: discord.Attachment | None = None):
+async def explain_term(ctx: discord.Interaction):
+    await ctx.response.send_modal(TermModal(True, True, explain_callback))
+
+async def explain_callback(result_dict: dict[str, str | list[discord.Attachment] | discord.Interaction]):
+    ctx = result_dict['Interaction']
+    term = result_dict['Term Name']
+    instructions = result_dict['Text']
+    files = result_dict['Files']
     # TODO
     term = term.casefold()
     diff_level, closest_words = spellcheck(term)
 
     if diff_level != 0:
         if not closest_words:
-            await ctx.response.send_message(f'`{term}` could not be found as a term.')
+            failure_text = f'`{term}` could not be found as a term.'
         else:
-            await ctx.response.send_message(f'`{term}` could not be found as a term. Did you mean ' + join_list(closest_words) + '?')
+            failure_text = f'`{term}` could not be found as a term. Did you mean ' + join_list(closest_words) + '?'
+        addendum = ('\n\n'
+            'This was your updated definition so you can try again:\n'
+            f'```\n{instructions}```')
+        await ctx.response.send_message(f'{failure_text}{addendum if instructions else ""}')
         return
     
     await ctx.response.defer()
 
-    files = [file for file in (file1, file2, file3, file4) if file is not None]
+    size_limit = ctx.guild.filesize_limit
+
     true_files = []
     text = ''
     for file in files:
+        file: discord.Attachment
         try:
             existing_assets = os.listdir('assets')
             # base, ext = os.path.splitext(file.filename)
@@ -388,13 +466,16 @@ async def explain_term(ctx: discord.Interaction, term: str, instructions: str | 
             #     name = f'{base} ({number}){ext}'
 
             if file.filename not in existing_assets:
-                bytes = await file.read()
-                with open(os.path.join('assets', file.filename), 'wb') as new_file:
-                    new_file.write(bytes)
+                if file.size < size_limit:
+                    bytes = await file.read()
+                    with open(os.path.join('assets', file.filename), 'wb') as new_file:
+                        new_file.write(bytes)
+                    true_files.append(file.filename)
+                else:
+                    text += f'`{file.filename}` is too large. Current max file size is {size_limit / 1024 /  1024} MB.\n'
             else:
                 text += f'{file.filename} exists in asset storage. Using stored file.\n'
-            
-            true_files.append(file.filename)
+                true_files.append(file.filename)
             
         except discord.Forbidden:
             text += f'Failed to download `{file.filename}`. I do not have permissions to. Give me permissions and use /explain_term to add this file.\n'
@@ -407,11 +488,11 @@ async def explain_term(ctx: discord.Interaction, term: str, instructions: str | 
         await ctx.followup.send(text)
 
     new_item = {
-        'Aliases': [],
+        'Aliases': config.data[term]['Aliases'],
         'Message': config.data[term]['Message'],
         'Files': config.data[term]['Files'],
-        'Method': '' if instructions is None else instructions,
-        'ExplainFiles': true_files
+        'Method': '' if not instructions else instructions,
+        'ExplainFiles': true_files if files else config.data[term]['ExplainFiles']
     }
 
     config.data[term] = new_item
@@ -569,12 +650,19 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
         await ctx.followup.send('Restarting o7')
         subprocess.Popen([venv_python, 'bot.py', str(ctx.channel_id)])
     except subprocess.CalledProcessError as e:
-        dprint(traceback.format_exc())
+        print(traceback.format_exc())
         await ctx.followup.send(traceback.format_exc(), ephemeral=True)
         await ctx.followup.send(f'Branch `{branch}` does not exist', ephemeral=True)
         return
     sys.exit(0)
 
+@myBot.tree.command(name='get_branch', description='get the current running branch')
+@check(guild_only)
+@check(is_owner)
+async def get_branch(ctx: discord.Interaction):
+    await ctx.response.defer(thinking=True, ephemeral=True)
+    branch = subprocess.run(['git', 'branch', '--show-current'], capture_output=True, text=True).stdout.strip()
+    await ctx.followup.send(f'Branch: {branch}', ephemeral=True)
 
 @myBot.tree.command(name='kill', description='Turns off the bot. Kills the process')
 @check(guild_only)

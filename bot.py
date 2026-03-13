@@ -648,7 +648,7 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
         return
     
     try:
-        subprocess.run(['git', 'fetch', 'origin'], check=True, text=True)
+        subprocess.run(['git', 'fetch', 'origin'], check=True, text=True, capture_output=True)
         if not branch_exists(branch):
             subprocess.run(['git', 'switch', '-c', branch, f'origin/{branch}'], check=True)
         else:

@@ -433,7 +433,7 @@ async def amend_callback(result_dict: dict[str, str | list[discord.Attachment] |
 @check(guild_only)
 @check(is_termer)
 async def explain_term(ctx: discord.Interaction):
-    await ctx.response.send_modal(TermModal(True, True, explain_callback))
+    await ctx.response.send_modal(TermModal(False, False, explain_callback))
 
 async def explain_callback(result_dict: dict[str, str | list[discord.Attachment] | discord.Interaction]):
     ctx = result_dict['Interaction']
@@ -648,7 +648,7 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
         return
     
     try:
-        subprocess.run(['git', 'fetch', 'origin'], check=True)
+        subprocess.run(['git', 'fetch', 'origin'], check=True, text=True, capture_output=True)
         if not branch_exists(branch):
             subprocess.run(['git', 'switch', '-c', branch, f'origin/{branch}'], check=True)
         else:
@@ -658,6 +658,10 @@ async def restart_and_update(ctx: discord.Interaction, branch: str | None = None
         subprocess.Popen([venv_python, 'bot.py', str(ctx.channel_id)])
     except subprocess.CalledProcessError as e:
         dprint(traceback.format_exc())
+        dprint('stdout:', e.stdout.strip())
+        dprint('stderr:', e.stderr.strip())
+        dprint('output:', e.output)
+        dprint('return code:', e.returncode)
         await ctx.followup.send(traceback.format_exc(), ephemeral=True)
         await ctx.followup.send(f'Branch `{branch}` does not exist', ephemeral=True)
         return

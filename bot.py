@@ -303,7 +303,7 @@ async def add_term_callback(result_dict: dict[str, str | list[discord.Attachment
 
     new_item = {
         'Aliases': [],
-        'Message': '' if definition is None else definition,
+        'Message': definition,
         'Files': true_files,
         'Method': 'No explanation provided.',
         'ExplainFiles': []

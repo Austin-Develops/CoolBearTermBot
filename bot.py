@@ -433,7 +433,7 @@ async def amend_callback(result_dict: dict[str, str | list[discord.Attachment] |
 @check(guild_only)
 @check(is_termer)
 async def explain_term(ctx: discord.Interaction):
-    await ctx.response.send_modal(TermModal(True, True, explain_callback))
+    await ctx.response.send_modal(TermModal(False, False, explain_callback))
 
 async def explain_callback(result_dict: dict[str, str | list[discord.Attachment] | discord.Interaction]):
     ctx = result_dict['Interaction']

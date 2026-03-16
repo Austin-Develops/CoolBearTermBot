@@ -305,7 +305,7 @@ async def add_term_callback(result_dict: dict[str, str | list[discord.Attachment
         'Aliases': [],
         'Message': definition,
         'Files': true_files,
-        'Method': 'No explanation provided.',
+        'Method': '',
         'ExplainFiles': []
     }
 
@@ -418,7 +418,7 @@ async def amend_callback(result_dict: dict[str, str | list[discord.Attachment] |
 
     new_item = {
         'Aliases': config.data[term]['Aliases'],
-        'Message': '' if not definition else definition,
+        'Message': config.data[term]['Message'] if not definition else definition,
         'Files': true_files if files else config.data[term]['Files'],
         'Method': config.data[term]['Method'],
         'ExplainFiles': config.data[term]['ExplainFiles']
@@ -498,7 +498,7 @@ async def explain_callback(result_dict: dict[str, str | list[discord.Attachment]
         'Aliases': config.data[term]['Aliases'],
         'Message': config.data[term]['Message'],
         'Files': config.data[term]['Files'],
-        'Method': '' if not instructions else instructions,
+        'Method': config.data[term]['Method'] if not instructions else instructions,
         'ExplainFiles': true_files if files else config.data[term]['ExplainFiles']
     }
 
@@ -534,6 +534,7 @@ async def del_term(ctx: discord.Interaction, term: str):
 async def define(ctx: discord.Interaction, term: str):
     await ctx.response.defer()
     term = term.casefold()
+    original_term = term
     diff_level, closest_words = spellcheck(term)
 
     if diff_level != 0:
@@ -552,6 +553,8 @@ async def define(ctx: discord.Interaction, term: str):
 
 {term_data['Message']}'''
         embed.colour = discord.Colour.teal()
+        if config.data[term]['Method']:
+            embed.set_footer(text=f"Use '/howto {original_term}' to learn how to do this")
 
         files = [discord.File(os.path.join('assets', filepath)) for filepath in config.data[term]['Files']]
         await ctx.followup.send(embed=embed)
@@ -560,11 +563,12 @@ async def define(ctx: discord.Interaction, term: str):
             await new_msg.edit(content=None, attachments=files)
 
 
-@myBot.tree.command(name='howto', description='gets instructions for how to perform a tech.')
+@myBot.tree.command(name='how_to', description='gets instructions for how to perform a tech.')
 @check(guild_only)
-async def howto(ctx: discord.Interaction, term: str):
+async def how_to(ctx: discord.Interaction, term: str):
     await ctx.response.defer()
     term = term.casefold()
+    original_term = term
     diff_level, closest_words = spellcheck(term)
 
     if diff_level != 0:
@@ -581,8 +585,9 @@ async def howto(ctx: discord.Interaction, term: str):
         embed.title = f'/howto {term}'
         embed.description = f'''Aliases: {'{None}' if not term_data['Aliases'] else ', '.join(term_data['Aliases'])}
 
-{term_data['Method']}'''
+{'No explanation provided.' if not term_data['Method'] else term_data['Method']}'''
         embed.colour = discord.Colour.teal()
+        embed.set_footer(text=f"Use '/define {original_term}' to learn what this is.")
 
         files = [discord.File(os.path.join('assets', filepath)) for filepath in config.data[term]['ExplainFiles']]
         await ctx.followup.send(embed=embed)

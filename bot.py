@@ -19,6 +19,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 MAX_FILE_UPLOAD = 4
 THINKING_URL = r'https://cdn.discordapp.com/emojis/464890748723003402.webp?size=128'
 NERD_URL = r'https://cdn.discordapp.com/emojis/586070829478182924.webp?size=128'
+BEAR_URL = r'https://cdn.discordapp.com/emojis/457028289534623745.webp?size=160'
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -551,6 +552,7 @@ async def define(ctx: discord.Interaction, term: str):
         term_data = config.data[term]
         embed = discord.Embed()
         embed.title = f'/define {term}'
+        embed.thumbnail = BEAR_URL
         embed.description = f'''Aliases: {'{None}' if not term_data['Aliases'] else ', '.join(term_data['Aliases'])}
 
 {term_data['Message']}'''
@@ -585,7 +587,8 @@ async def how_to(ctx: discord.Interaction, term: str):
         term = closest_words[0]
         term_data = config.data[term]
         embed = discord.Embed()
-        embed.title = f'/howto {term}'
+        embed.title = f'/how_to {term}'
+        embed.thumbnail = BEAR_URL
         embed.description = f'''Aliases: {'{None}' if not term_data['Aliases'] else ', '.join(term_data['Aliases'])}
 
 {'No explanation provided.' if not term_data['Method'] else term_data['Method']}'''

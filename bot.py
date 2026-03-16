@@ -558,7 +558,7 @@ async def define(ctx: discord.Interaction, term: str):
 {term_data['Message']}'''
         embed.colour = discord.Colour.teal()
         if config.data[term]['Method']:
-            embed.set_footer(text=f"(Use '/howto {original_term}' to learn how to do this)",
+            embed.set_footer(text=f"(Use '/how_to {original_term}' to learn how to do this)",
                              icon_url=NERD_URL)
 
         files = [discord.File(os.path.join('assets', filepath)) for filepath in config.data[term]['Files']]

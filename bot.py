@@ -552,7 +552,7 @@ async def define(ctx: discord.Interaction, term: str):
         term_data = config.data[term]
         embed = discord.Embed()
         embed.title = f'/define {term}'
-        embed.thumbnail = BEAR_URL
+        embed.set_thumbnail(url=BEAR_URL)
         embed.description = f'''Aliases: {'{None}' if not term_data['Aliases'] else ', '.join(term_data['Aliases'])}
 
 {term_data['Message']}'''
@@ -588,7 +588,7 @@ async def how_to(ctx: discord.Interaction, term: str):
         term_data = config.data[term]
         embed = discord.Embed()
         embed.title = f'/how_to {term}'
-        embed.thumbnail = BEAR_URL
+        embed.set_thumbnail(url=BEAR_URL)
         embed.description = f'''Aliases: {'{None}' if not term_data['Aliases'] else ', '.join(term_data['Aliases'])}
 
 {'No explanation provided.' if not term_data['Method'] else term_data['Method']}'''

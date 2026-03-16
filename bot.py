@@ -17,6 +17,8 @@ import os
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 MAX_FILE_UPLOAD = 4
+THINKING_URL = r'https://cdn.discordapp.com/emojis/464890748723003402.webp?size=128'
+NERD_URL = r'https://cdn.discordapp.com/emojis/586070829478182924.webp?size=128'
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -554,7 +556,8 @@ async def define(ctx: discord.Interaction, term: str):
 {term_data['Message']}'''
         embed.colour = discord.Colour.teal()
         if config.data[term]['Method']:
-            embed.set_footer(text=f"Use '/howto {original_term}' to learn how to do this")
+            embed.set_footer(text=f"(Use '/howto {original_term}' to learn how to do this)",
+                             icon_url=NERD_URL)
 
         files = [discord.File(os.path.join('assets', filepath)) for filepath in config.data[term]['Files']]
         await ctx.followup.send(embed=embed)
@@ -587,7 +590,8 @@ async def how_to(ctx: discord.Interaction, term: str):
 
 {'No explanation provided.' if not term_data['Method'] else term_data['Method']}'''
         embed.colour = discord.Colour.teal()
-        embed.set_footer(text=f"Use '/define {original_term}' to learn what this is.")
+        embed.set_footer(text=f"(Use '/define {original_term}' to learn what this is.)",
+                         icon_url=THINKING_URL)
 
         files = [discord.File(os.path.join('assets', filepath)) for filepath in config.data[term]['ExplainFiles']]
         await ctx.followup.send(embed=embed)
